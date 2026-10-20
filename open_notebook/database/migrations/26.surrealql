@@ -1,0 +1,65 @@
+-- Migration 26: quizzes (single- and multiple-choice) generated from notebook content.
+--
+-- quiz           one generated quiz; a snapshot, independent of later source edits
+-- quiz_question  one question with its answer options and the correct option ids
+-- quiz_attempt   one run through a quiz (all questions, or only the ones last answered wrong)
+-- quiz_answer    the answer given to one question in one attempt
+--
+-- Learning statistics are computed from quiz_attempt / quiz_answer; nothing is
+-- stored redundantly. quiz_answer carries `quiz` as well so per-quiz statistics
+-- need no join through the attempt.
+
+DEFINE TABLE IF NOT EXISTS quiz SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS created ON TABLE quiz DEFAULT time::now() VALUE $before OR time::now();
+DEFINE FIELD IF NOT EXISTS updated ON TABLE quiz DEFAULT time::now() VALUE time::now();
+DEFINE FIELD IF NOT EXISTS name ON TABLE quiz TYPE string;
+DEFINE FIELD IF NOT EXISTS notebook ON TABLE quiz TYPE option<record<notebook>>;
+DEFINE FIELD IF NOT EXISTS settings ON TABLE quiz FLEXIBLE TYPE option<object>;
+DEFINE FIELD IF NOT EXISTS status ON TABLE quiz TYPE string DEFAULT 'generating'
+    ASSERT $value IN ['generating', 'ready', 'failed'];
+DEFINE FIELD IF NOT EXISTS error ON TABLE quiz TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS command ON TABLE quiz TYPE option<record<command>>;
+
+DEFINE TABLE IF NOT EXISTS quiz_question SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS created ON TABLE quiz_question DEFAULT time::now() VALUE $before OR time::now();
+DEFINE FIELD IF NOT EXISTS updated ON TABLE quiz_question DEFAULT time::now() VALUE time::now();
+DEFINE FIELD IF NOT EXISTS quiz ON TABLE quiz_question TYPE record<quiz>;
+DEFINE FIELD IF NOT EXISTS position ON TABLE quiz_question TYPE int;
+DEFINE FIELD IF NOT EXISTS type ON TABLE quiz_question TYPE string
+    ASSERT $value IN ['single', 'multiple'];
+DEFINE FIELD IF NOT EXISTS question ON TABLE quiz_question TYPE string;
+DEFINE FIELD IF NOT EXISTS options ON TABLE quiz_question FLEXIBLE TYPE array<object>;
+DEFINE FIELD IF NOT EXISTS correct_option_ids ON TABLE quiz_question TYPE array<string>;
+DEFINE FIELD IF NOT EXISTS explanation ON TABLE quiz_question TYPE option<string>;
+
+DEFINE TABLE IF NOT EXISTS quiz_attempt SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS created ON TABLE quiz_attempt DEFAULT time::now() VALUE $before OR time::now();
+DEFINE FIELD IF NOT EXISTS updated ON TABLE quiz_attempt DEFAULT time::now() VALUE time::now();
+DEFINE FIELD IF NOT EXISTS quiz ON TABLE quiz_attempt TYPE record<quiz>;
+DEFINE FIELD IF NOT EXISTS mode ON TABLE quiz_attempt TYPE string DEFAULT 'full'
+    ASSERT $value IN ['full', 'retry_wrong'];
+DEFINE FIELD IF NOT EXISTS question_ids ON TABLE quiz_attempt TYPE array<record<quiz_question>>;
+DEFINE FIELD IF NOT EXISTS finished ON TABLE quiz_attempt TYPE option<datetime>;
+DEFINE FIELD IF NOT EXISTS score ON TABLE quiz_attempt TYPE option<int>;
+DEFINE FIELD IF NOT EXISTS total ON TABLE quiz_attempt TYPE int;
+
+DEFINE TABLE IF NOT EXISTS quiz_answer SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS created ON TABLE quiz_answer DEFAULT time::now() VALUE $before OR time::now();
+DEFINE FIELD IF NOT EXISTS updated ON TABLE quiz_answer DEFAULT time::now() VALUE time::now();
+DEFINE FIELD IF NOT EXISTS quiz ON TABLE quiz_answer TYPE record<quiz>;
+DEFINE FIELD IF NOT EXISTS attempt ON TABLE quiz_answer TYPE record<quiz_attempt>;
+DEFINE FIELD IF NOT EXISTS question ON TABLE quiz_answer TYPE record<quiz_question>;
+DEFINE FIELD IF NOT EXISTS selected_option_ids ON TABLE quiz_answer TYPE array<string>;
+DEFINE FIELD IF NOT EXISTS is_correct ON TABLE quiz_answer TYPE bool;
+
+DEFINE INDEX IF NOT EXISTS idx_quiz_question_quiz ON TABLE quiz_question COLUMNS quiz CONCURRENTLY;
+DEFINE INDEX IF NOT EXISTS idx_quiz_attempt_quiz ON TABLE quiz_attempt COLUMNS quiz CONCURRENTLY;
+DEFINE INDEX IF NOT EXISTS idx_quiz_answer_quiz ON TABLE quiz_answer COLUMNS quiz CONCURRENTLY;
+DEFINE INDEX IF NOT EXISTS idx_quiz_answer_attempt ON TABLE quiz_answer COLUMNS attempt CONCURRENTLY;
+
+-- Deleting a quiz removes everything that belongs to it.
+DEFINE EVENT IF NOT EXISTS quiz_delete ON TABLE quiz WHEN ($after == NONE) THEN {
+    DELETE quiz_answer WHERE quiz = $before.id;
+    DELETE quiz_attempt WHERE quiz = $before.id;
+    DELETE quiz_question WHERE quiz = $before.id;
+};
