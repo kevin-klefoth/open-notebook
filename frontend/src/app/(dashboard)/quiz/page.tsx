@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ListChecks, Plus } from 'lucide-react'
 
 import { AppShell } from '@/components/layout/AppShell'
+import { CreateQuizTab } from '@/components/quiz/CreateQuizTab'
 import { QuizzesTab } from '@/components/quiz/QuizzesTab'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTranslation } from '@/lib/hooks/use-translation'
@@ -48,7 +49,9 @@ export default function QuizPage() {
               <QuizzesTab onCreate={() => setActiveTab('create')} />
             </TabsContent>
 
-            <TabsContent value="create">{/* quiz creation form: next step */}</TabsContent>
+            <TabsContent value="create">
+              <CreateQuizTab onCreated={() => setActiveTab('quizzes')} />
+            </TabsContent>
           </Tabs>
         </div>
       </div>
