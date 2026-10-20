@@ -824,3 +824,112 @@ class NotebookDeleteResponse(BaseModel):
     deleted_chat_sessions: int = Field(
         ..., description="Number of chat sessions deleted"
     )
+
+
+# Quiz models
+class QuizGenerateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200, description="Quiz name")
+    notebook_id: str = Field(..., description="Notebook to build the quiz from")
+    context_config: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Which sources and notes to use, in the same format as "
+            "POST /chat/context ({'sources': {id: 'insights'|'full content'|"
+            "'not in context'}, 'notes': {...}}). Omit to use the whole notebook."
+        ),
+    )
+    num_questions: int = Field(10, ge=1, le=50, description="Number of questions")
+    max_options: int = Field(
+        4, ge=2, le=8, description="Maximum number of answer options per question"
+    )
+    model_id: Optional[str] = Field(
+        None, description="Model to generate with (default: transformation model)"
+    )
+    language: Optional[str] = Field(
+        None, description="Language of the quiz (default: language of the content)"
+    )
+
+
+class QuizGenerateResponse(BaseModel):
+    quiz_id: str
+    job_id: str
+    status: str
+
+
+class QuizStatsResponse(BaseModel):
+    question_count: int
+    attempt_count: int
+    last_score_pct: Optional[int] = None
+    best_score_pct: Optional[int] = None
+    answered_count: int
+    mastered_count: int
+    wrong_count: int
+
+
+class QuizResponse(BaseModel):
+    id: str
+    name: str
+    notebook_id: Optional[str] = None
+    status: Literal["generating", "ready", "failed"]
+    error: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+    created: Optional[str] = None
+    updated: Optional[str] = None
+    stats: QuizStatsResponse
+
+
+class QuizOptionResponse(BaseModel):
+    id: str
+    text: str
+
+
+class QuizQuestionResponse(BaseModel):
+    """A question as shown while answering: no solution, no explanation."""
+
+    id: str
+    position: int
+    type: Literal["single", "multiple"]
+    question: str
+    options: List[QuizOptionResponse]
+
+
+class QuizDetailResponse(QuizResponse):
+    questions: List[QuizQuestionResponse]
+
+
+class QuizAttemptCreate(BaseModel):
+    mode: Literal["full", "retry_wrong"] = Field(
+        "full",
+        description="'full' asks every question, 'retry_wrong' only those whose "
+        "latest answer was wrong",
+    )
+
+
+class QuizAttemptResponse(BaseModel):
+    id: str
+    quiz_id: str
+    mode: Literal["full", "retry_wrong"]
+    total: int
+    finished: bool
+    questions: List[QuizQuestionResponse]
+
+
+class QuizAnswerRequest(BaseModel):
+    question_id: str
+    selected_option_ids: List[str] = Field(default_factory=list)
+
+
+class QuizAnswerResponse(BaseModel):
+    question_id: str
+    is_correct: bool
+    correct_option_ids: List[str]
+    explanation: Optional[str] = None
+
+
+class QuizFinishResponse(BaseModel):
+    attempt_id: str
+    score: int
+    total: int
+    score_pct: int
+    wrong_question_ids: List[str]
+    stats: QuizStatsResponse
