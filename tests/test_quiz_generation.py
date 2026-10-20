@@ -180,6 +180,16 @@ class TestGenerateQuestions:
         assert "Deutsch" in prompt
         assert "questions" in prompt  # format instructions mention the schema
 
+    async def test_prompt_does_not_hardcode_an_english_example_phrase(self):
+        """A model copies example wording, so "Select all that apply." ended up
+        behind German questions. The language is the quiz's, not the prompt's."""
+        model = model_returning(quiz_json(3))
+        with provision_returning(model):
+            await generate_questions(self.state(language="Deutsch"), CONFIG)
+        prompt = model.ainvoke.await_args.args[0]
+        assert "select all that apply" not in prompt.lower()
+        assert "written in the language of the quiz" in prompt
+
     async def test_large_requests_are_split_into_batches(self):
         total = QUIZ_BATCH_SIZE + 5
         first, second = quiz_json(QUIZ_BATCH_SIZE, "A"), quiz_json(5, "B")

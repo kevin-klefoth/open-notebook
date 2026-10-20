@@ -25,6 +25,7 @@ Click **Generate quiz**. The quiz appears in **My quizzes** right away with **Ge
 Notes:
 
 - The questions are based on the full text and insights of the selected sources and on your notes. The quiz is a snapshot: editing or deleting a source later doesn't change an existing quiz.
+- Ask for about as many questions as the content supports. A few paragraphs yield around ten distinct questions; beyond that the model starts to ask the same thing in different words.
 - Some models return fewer usable questions than you asked for. The quiz keeps what worked, and its card says, for example, "Only 8 of 10 questions could be generated."
 - Large selections are sent to your **Large Context Model** when they exceed about 105,000 tokens (the same rule as chat).
 
