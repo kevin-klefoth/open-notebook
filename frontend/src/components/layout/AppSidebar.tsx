@@ -40,6 +40,7 @@ import {
   Plus,
   Wrench,
   Command,
+  GraduationCap,
 } from 'lucide-react'
 
 const getNavigation = (t: TFunction) => [
@@ -60,6 +61,7 @@ const getNavigation = (t: TFunction) => [
     title: t('navigation.create'),
     items: [
       { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic, iconClass: 'text-mauve' },
+      { name: t('navigation.quiz'), href: '/quiz', icon: GraduationCap, iconClass: 'text-gold' },
     ],
   },
   {
