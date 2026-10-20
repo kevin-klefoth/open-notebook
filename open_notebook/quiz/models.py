@@ -98,7 +98,7 @@ class Quiz(ObjectModel):
         if not self.id:
             return []
         rows = await repo_query(
-            "SELECT question, is_correct FROM quiz_answer "
+            "SELECT question, is_correct, created FROM quiz_answer "
             "WHERE quiz = $quiz ORDER BY created DESC",
             {"quiz": ensure_record_id(self.id)},
         )
@@ -130,13 +130,13 @@ class Quiz(ObjectModel):
             params,
         )
         attempts = await repo_query(
-            "SELECT quiz, score, total FROM quiz_attempt"
+            "SELECT quiz, score, total, finished FROM quiz_attempt"
             + (scope + " AND" if scope else " WHERE")
             + " finished != NONE ORDER BY finished DESC",
             params,
         )
         answers = await repo_query(
-            f"SELECT quiz, question, is_correct FROM quiz_answer{scope} "
+            f"SELECT quiz, question, is_correct, created FROM quiz_answer{scope} "
             "ORDER BY created DESC",
             params,
         )
