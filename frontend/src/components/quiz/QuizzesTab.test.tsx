@@ -7,8 +7,14 @@ import type { Quiz } from '@/lib/types/quiz'
 // useTranslation is mocked globally in setup.ts (t returns the key string)
 
 const useQuizzesMock = vi.fn()
+const deleteMutate = vi.fn()
 vi.mock('@/lib/hooks/use-quizzes', () => ({
   useQuizzes: () => useQuizzesMock(),
+  useDeleteQuiz: () => ({ mutate: deleteMutate, isPending: false, variables: undefined }),
+}))
+
+vi.mock('@/lib/hooks/use-notebooks', () => ({
+  useNotebooks: () => ({ data: [{ id: 'notebook:1', name: 'Biologie' }] }),
 }))
 
 function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
@@ -46,6 +52,7 @@ function mockQuizzes(state: Record<string, unknown>) {
 describe('QuizzesTab', () => {
   beforeEach(() => {
     useQuizzesMock.mockReset()
+    deleteMutate.mockReset()
   })
 
   it('shows a loading state', () => {
@@ -81,8 +88,20 @@ describe('QuizzesTab', () => {
     render(<QuizzesTab onCreate={vi.fn()} />)
 
     expect(screen.getByText('Cell biology')).toBeInTheDocument()
-    expect(screen.getByText('quiz.questionsCount')).toBeInTheDocument()
+    expect(screen.getByText(/quiz\.questionsCount.*Biologie/)).toBeInTheDocument()
     expect(screen.getByText('quiz.statusGenerating')).toBeInTheDocument()
     expect(screen.getByText('quiz.statusFailed')).toBeInTheDocument()
+  })
+})
+
+describe('QuizzesTab deletion', () => {
+  it('deletes the confirmed quiz', () => {
+    mockQuizzes({ quizzes: [makeQuiz()] })
+    render(<QuizzesTab onCreate={vi.fn()} />)
+
+    fireEvent.click(screen.getByLabelText('quiz.deleteQuiz'))
+    fireEvent.click(screen.getByText('common.delete'))
+
+    expect(deleteMutate).toHaveBeenCalledWith('quiz:1')
   })
 })

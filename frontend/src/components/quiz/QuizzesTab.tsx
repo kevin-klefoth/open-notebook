@@ -1,13 +1,14 @@
 'use client'
 
+import { useMemo } from 'react'
 import { AlertCircle, GraduationCap, Loader2 } from 'lucide-react'
 
 import { EmptyState } from '@/components/common/EmptyState'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { useQuizzes } from '@/lib/hooks/use-quizzes'
+import { QuizCard } from '@/components/quiz/QuizCard'
+import { useNotebooks } from '@/lib/hooks/use-notebooks'
+import { useDeleteQuiz, useQuizzes } from '@/lib/hooks/use-quizzes'
 import { useTranslation } from '@/lib/hooks/use-translation'
 
 interface QuizzesTabProps {
@@ -18,6 +19,13 @@ interface QuizzesTabProps {
 export function QuizzesTab({ onCreate }: QuizzesTabProps) {
   const { t } = useTranslation()
   const { quizzes, isLoading, isError } = useQuizzes()
+  const { data: notebooks } = useNotebooks()
+  const deleteQuiz = useDeleteQuiz()
+
+  const notebookNames = useMemo(
+    () => new Map((notebooks ?? []).map((notebook) => [notebook.id, notebook.name])),
+    [notebooks]
+  )
 
   if (isLoading) {
     return (
@@ -52,25 +60,13 @@ export function QuizzesTab({ onCreate }: QuizzesTabProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {quizzes.map((quiz) => (
-        <Card key={quiz.id}>
-          <CardContent className="space-y-2 p-4">
-            <h3 className="font-display text-lg font-semibold tracking-tight">
-              {quiz.name}
-            </h3>
-            {quiz.status === 'generating' ? (
-              <Badge variant="outline" className="gap-1.5">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {t('quiz.statusGenerating')}
-              </Badge>
-            ) : quiz.status === 'failed' ? (
-              <Badge variant="destructive">{t('quiz.statusFailed')}</Badge>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t('quiz.questionsCount', { count: quiz.stats.question_count })}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <QuizCard
+          key={quiz.id}
+          quiz={quiz}
+          notebookName={quiz.notebook_id ? notebookNames.get(quiz.notebook_id) : undefined}
+          onDelete={(quizId) => deleteQuiz.mutate(quizId)}
+          deleting={deleteQuiz.isPending && deleteQuiz.variables === quiz.id}
+        />
       ))}
     </div>
   )
