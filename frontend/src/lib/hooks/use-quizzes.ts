@@ -5,8 +5,13 @@ import { quizzesApi } from '@/lib/api/quizzes'
 import { QUERY_KEYS } from '@/lib/api/query-client'
 import { useToast } from '@/lib/hooks/use-toast'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { getApiErrorKey } from '@/lib/utils/error-handler'
-import { Quiz, QuizGenerateRequest } from '@/lib/types/quiz'
+import { getApiErrorMessage } from '@/lib/utils/error-handler'
+import {
+  Quiz,
+  QuizAnswerRequest,
+  QuizAttemptMode,
+  QuizGenerateRequest,
+} from '@/lib/types/quiz'
 
 /** How often the list refreshes while a quiz is still being generated. */
 export const QUIZ_POLL_INTERVAL_MS = 4_000
@@ -53,7 +58,7 @@ export function useGenerateQuiz() {
     onError: (error: unknown) => {
       toast({
         title: t('quiz.failedToGenerate'),
-        description: getApiErrorKey(error, t('common.error')),
+        description: getApiErrorMessage(error, (key) => t(key), 'common.error'),
         variant: 'destructive',
       })
     },
@@ -77,7 +82,61 @@ export function useDeleteQuiz() {
     onError: (error: unknown) => {
       toast({
         title: t('quiz.failedToDelete'),
-        description: getApiErrorKey(error, t('common.error')),
+        description: getApiErrorMessage(error, (key) => t(key), 'common.error'),
+        variant: 'destructive',
+      })
+    },
+  })
+}
+
+/**
+ * Start a run through a quiz. Failures are shown by the player itself (an
+ * alert with a way back), not as a toast.
+ */
+export function useStartQuizAttempt() {
+  return useMutation({
+    mutationFn: ({ quizId, mode }: { quizId: string; mode: QuizAttemptMode }) =>
+      quizzesApi.startAttempt(quizId, mode),
+  })
+}
+
+export function useAnswerQuizQuestion() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const { t } = useTranslation()
+
+  return useMutation({
+    mutationFn: ({
+      attemptId,
+      payload,
+    }: {
+      attemptId: string
+      payload: QuizAnswerRequest
+    }) => quizzesApi.answer(attemptId, payload),
+    // Every answer changes the "mastered" and "to repeat" counts on the cards.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.quizzes }),
+    onError: (error: unknown) => {
+      toast({
+        title: t('quiz.failedToCheck'),
+        description: getApiErrorMessage(error, (key) => t(key), 'common.error'),
+        variant: 'destructive',
+      })
+    },
+  })
+}
+
+export function useFinishQuizAttempt() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const { t } = useTranslation()
+
+  return useMutation({
+    mutationFn: (attemptId: string) => quizzesApi.finishAttempt(attemptId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.quizzes }),
+    onError: (error: unknown) => {
+      toast({
+        title: t('quiz.failedToFinish'),
+        description: getApiErrorMessage(error, (key) => t(key), 'common.error'),
         variant: 'destructive',
       })
     },
