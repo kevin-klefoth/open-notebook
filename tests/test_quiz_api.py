@@ -154,6 +154,7 @@ class TestGenerate:
             "job_id": "command:j1",
             "status": "generating",
         }
+        assert submit.await_args is not None
         app_name, command, args = submit.await_args.args
         assert (app_name, command) == ("open_notebook", "generate_quiz")
         assert args == {

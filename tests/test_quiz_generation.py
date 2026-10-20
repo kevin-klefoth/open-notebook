@@ -326,12 +326,14 @@ class TestGenerateQuizCommand:
         assert output.success is True
         assert output.question_count == 2
         # Old questions are removed first so a re-run can't double them up.
+        assert query.await_args is not None
         assert query.await_args.args[0].startswith("DELETE quiz_question")
         assert [q.position for q in saved] == [0, 1]
         assert [q.type for q in saved] == ["single", "multiple"]
         assert quiz.status == "ready"
         assert quiz.error is None
         assert quiz.settings == {"num_questions": 2, "generated_questions": 2}
+        assert invoke.await_args is not None
         config = invoke.await_args.kwargs["config"]
         assert config == {"configurable": {"model_id": "model:x"}}
 
