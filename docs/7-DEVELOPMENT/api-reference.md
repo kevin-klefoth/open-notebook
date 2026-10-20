@@ -53,6 +53,7 @@ Use `/docs` for request and response shapes. This map shows where things are:
 | Models and providers | `/api/models`, `/api/models/defaults`, `/api/models/sync`, `/api/models/auto-assign`, `/api/providers` |
 | Credentials | `/api/credentials`, `/api/credentials/{id}/test`, `/api/credentials/{id}/discover`, `/api/credentials/{id}/register-models`, `/api/credentials/migrate-*` |
 | Podcasts | `/api/podcasts/generate`, `/api/podcasts/episodes`, `/api/episode-profiles`, `/api/speaker-profiles` |
+| Quizzes | `/api/quizzes` (list), `/api/quizzes/generate`, `/api/quizzes/{id}` (get, delete), `/api/quizzes/{id}/attempts`, `/api/quizzes/attempts/{attempt_id}/answers`, `/api/quizzes/attempts/{attempt_id}/finish` |
 | Background jobs | `/api/commands/jobs`, `/api/commands/jobs/{job_id}` |
 | Embeddings | `/api/embed`, `/api/embeddings/rebuild` |
 | Settings and config | `/api/settings`, `/api/config`, `/api/capabilities`, `/api/languages`, `/api/auth/status` |
@@ -63,6 +64,7 @@ Source processing, embedding and podcast generation run on the background worker
 
 - Creating a source with `async_processing=true` (the UI does this) saves it, submits a `process_source` job and returns at once; poll `GET /api/sources/{id}/status` until it is `completed` or `failed`. Without it (the default), the request waits until processing finishes.
 - `POST /api/podcasts/generate` returns a job id; poll `GET /api/podcasts/jobs/{job_id}` or list `GET /api/podcasts/episodes`.
+- `POST /api/quizzes/generate` creates the quiz with status `generating` and returns its id and a job id; poll `GET /api/quizzes/{id}` until `status` is `ready` or `failed` (the failure reason is in `error`).
 - Any job: `GET /api/commands/jobs/{job_id}`.
 
 If the worker isn't running, jobs stay queued.

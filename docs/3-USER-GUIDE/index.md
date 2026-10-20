@@ -19,6 +19,7 @@ What each feature needs:
 | Text search | None |
 | Uploaded audio and video files, YouTube videos without a transcript | Speech-to-Text Model (YouTube videos with a transcript don't need one) |
 | Podcasts | The language and text-to-speech models chosen in the episode and speaker profiles |
+| Quizzes | Transformation Model, or the Chat Model if none is set (or any language model chosen for the quiz) |
 
 ---
 
@@ -36,6 +37,7 @@ What each feature needs:
 | [Working with Notes](working-with-notes.md) | Writing notes and saving AI answers |
 | [Search and Ask](search.md) | Text and vector search, and Ask across your knowledge base |
 | [Creating Podcasts](creating-podcasts.md) | Generating episodes, episode and speaker profiles |
+| [Quizzes](quizzes.md) | Generating single- and multiple-choice quizzes from a notebook, answering them, repeating wrong questions |
 
 ---
 

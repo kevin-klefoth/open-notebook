@@ -45,10 +45,11 @@ The Docker image runs the API, worker and frontend under supervisord (`superviso
 | `open_notebook/ai/` | `provider_registry.py` (provider metadata), `models.py` (`Model`, `DefaultModels`, `ModelManager`), `provision.py`, `key_provider.py`, `model_discovery.py`, `connection_tester.py` |
 | `open_notebook/graphs/` | LangGraph workflows (below) |
 | `open_notebook/podcasts/` | `EpisodeProfile`, `SpeakerProfile`, `PodcastEpisode` |
+| `open_notebook/quiz/` | `Quiz`, `QuizQuestion`, `QuizAttempt`, `QuizAnswer` and the statistics computed from them ([ADR-0XX](decisions/ADR-0XX-quiz-data-model.md)) |
 | `open_notebook/database/` | `repository.py` (`repo_query`, `repo_create`, …; one connection per call, no pool) and migrations |
 | `open_notebook/utils/` | Chunking, embedding, context building, encryption, error classification, URL validation |
-| `commands/` | Background commands: `process_source`, `run_transformation`, `embed_note`, `embed_insight`, `embed_source`, `create_insight`, `rebuild_embeddings`, `generate_podcast` |
-| `prompts/` | Jinja templates for ask, chat, source chat, transformations and podcasts |
+| `commands/` | Background commands: `process_source`, `run_transformation`, `embed_note`, `embed_insight`, `embed_source`, `create_insight`, `rebuild_embeddings`, `generate_podcast`, `generate_quiz` |
+| `prompts/` | Jinja templates for ask, chat, source chat, transformations, podcasts and quizzes |
 
 ## Data model
 
@@ -66,6 +67,7 @@ Defined by the migrations in `open_notebook/database/migrations/` (read them for
 | `model` | A configured model: `provider`, `name`, `type`, optional `credential` link |
 | `credential` | Provider credentials, API key encrypted ([credentials.md](credentials.md)) |
 | `episode_profile`, `speaker_profile`, `episode` | Podcast configuration and generated episodes ([podcasts.md](podcasts.md)) |
+| `quiz`, `quiz_question`, `quiz_attempt`, `quiz_answer` | Generated quizzes, their questions, runs through a quiz and the answers given ([ADR-0XX](decisions/ADR-0XX-quiz-data-model.md)) |
 | `open_notebook:*` records | Singletons: `default_models`, `default_prompts`, `content_settings` (plus legacy `provider_configs`, kept only for migration) |
 
 Relationships are graph edges, not foreign keys:
