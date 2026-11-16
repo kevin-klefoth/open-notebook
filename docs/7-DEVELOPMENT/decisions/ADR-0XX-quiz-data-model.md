@@ -2,7 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-10
-- **Related**: [ADR-004](ADR-004-background-workers.md), migration 26
+- **Related**: [ADR-004](ADR-004-background-workers.md), [ADR-006](ADR-006-migration-granularity.md)
 
 ## Context
 
@@ -10,7 +10,8 @@ The quiz feature generates single- and multiple-choice questions from a notebook
 
 ## Decision
 
-- **Four `SCHEMAFULL` tables** (migration 26): `quiz`, `quiz_question`, `quiz_attempt`, `quiz_answer`. A quiz is a snapshot of generated questions, independent of later source edits. Deleting a quiz removes everything that belongs to it through a database event (`quiz_delete`), like `source_delete`.
+- **Four `SCHEMAFULL` tables** (`database/fork/quiz.surrealql`): `quiz`, `quiz_question`, `quiz_attempt`, `quiz_answer`. A quiz is a snapshot of generated questions, independent of later source edits. Deleting a quiz removes everything that belongs to it through a database event (`quiz_delete`), like `source_delete`.
+- **The schema is not a numbered migration (fork only).** It is applied on every startup by `AsyncMigrationManager.run_fork_schema()`, and every statement is `IF NOT EXISTS`. This fork added the tables as migration 26 first; upstream then used 26-28 for other changes, and an installation that already had our 26 recorded would have skipped upstream's. Keeping fork tables out of the upstream numbering makes that collision impossible. A contribution to upstream would turn the file into a regular numbered migration.
 - **No stored counters.** Statistics (attempts, last/best score, mastered, wrong) are computed from `quiz_attempt` and `quiz_answer` in three queries for any number of quizzes (`Quiz.get_stats_map`). `quiz_answer` carries `quiz` as well, so no join through the attempt is needed.
 - **The latest answer to a question decides.** A question is *mastered* if its latest answer was correct and *wrong* if it was wrong. "Repeat wrong questions" asks exactly the wrong ones, so answering one correctly takes it out of the set. Questions left unanswered when an attempt is finished are recorded as wrong answers, so skipping can't hide a gap.
 - **Grading is server-side.** The question endpoints never return the solution; `POST /api/quizzes/attempts/{id}/answers` grades the answer (exactly the correct set) and then reveals the correct options and the explanation. This isn't cheat protection for a self-hosted app; it keeps the rule in one place and the client simple.

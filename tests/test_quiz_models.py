@@ -1,7 +1,7 @@
 """Unit tests for the quiz domain models (open_notebook.quiz.models)."""
 
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -14,7 +14,9 @@ from open_notebook.quiz.models import (
     compute_quiz_stats,
 )
 
-MIGRATIONS_DIR = Path(__file__).parent.parent / "open_notebook/database/migrations"
+FORK_SCHEMA = (
+    Path(__file__).parent.parent / "open_notebook/database/fork/quiz.surrealql"
+)
 
 
 def make_question(**overrides) -> QuizQuestion:
@@ -35,26 +37,58 @@ def make_question(**overrides) -> QuizQuestion:
 
 
 # ============================================================================
-# Migration
+# Schema (applied at startup, outside the numbered migrations)
 # ============================================================================
 
 
-class TestQuizMigration:
-    def test_migration_is_registered_in_manager(self):
+class TestQuizSchema:
+    def test_defines_all_tables(self):
+        sql = FORK_SCHEMA.read_text(encoding="utf-8")
+        for table in ("quiz", "quiz_question", "quiz_attempt", "quiz_answer"):
+            assert f"DEFINE TABLE IF NOT EXISTS {table} SCHEMAFULL" in sql
+
+    def test_every_definition_is_repeatable(self):
+        """The file runs on every startup, so a definition without IF NOT EXISTS
+        (or OVERWRITE) would fail the second time."""
+        sql = FORK_SCHEMA.read_text(encoding="utf-8")
+        statements = [
+            line.strip()
+            for line in sql.splitlines()
+            if line.strip().startswith("DEFINE ")
+        ]
+        assert statements
+        for statement in statements:
+            assert "IF NOT EXISTS" in statement or "OVERWRITE" in statement, statement
+
+    def test_is_not_part_of_the_numbered_migrations(self):
+        """Upstream owns the numbering; a quiz migration there would collide
+        with the next upstream migration."""
         from open_notebook.database.async_migrate import AsyncMigrationManager
 
         manager = AsyncMigrationManager()
-        assert len(manager.up_migrations) >= 26
         assert len(manager.up_migrations) == len(manager.down_migrations)
-        assert "quiz_question" in manager.up_migrations[25].sql
-        assert "quiz_question" in manager.down_migrations[25].sql
+        assert all("quiz" not in m.sql for m in manager.up_migrations)
 
-    def test_migration_defines_all_tables_and_down_removes_them(self):
-        up = (MIGRATIONS_DIR / "26.surrealql").read_text()
-        down = (MIGRATIONS_DIR / "26_down.surrealql").read_text()
-        for table in ("quiz", "quiz_question", "quiz_attempt", "quiz_answer"):
-            assert f"DEFINE TABLE IF NOT EXISTS {table} SCHEMAFULL" in up
-            assert f"REMOVE TABLE IF EXISTS {table};" in down
+    @pytest.mark.asyncio
+    async def test_run_fork_schema_applies_the_file(self):
+        from open_notebook.database.async_migrate import AsyncMigrationManager
+
+        connection = MagicMock()
+        connection.query = AsyncMock()
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=connection)
+        context.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "open_notebook.database.async_migrate.db_connection", return_value=context
+        ):
+            await AsyncMigrationManager().run_fork_schema()
+
+        connection.query.assert_awaited_once()
+        assert (
+            "DEFINE TABLE IF NOT EXISTS quiz_question"
+            in connection.query.await_args.args[0]
+        )
 
 
 # ============================================================================

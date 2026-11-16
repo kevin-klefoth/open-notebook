@@ -19,6 +19,7 @@ class FakeMigrationManager:
         self.get_current_version = AsyncMock(side_effect=current_versions or [14])
         self.needs_migration = AsyncMock(return_value=needs_migration)
         self.run_migration_up = AsyncMock(side_effect=migration_side_effect)
+        self.run_fork_schema = AsyncMock()
 
 
 @pytest.fixture
@@ -46,6 +47,8 @@ async def test_database_reachable_on_first_probe_runs_migrations_once(
 
     manager.ping.assert_awaited_once()
     manager.run_migration_up.assert_awaited_once()
+    # The fork's quiz tables are applied after the numbered migrations.
+    manager.run_fork_schema.assert_awaited_once()
     assert manager.get_current_version.await_count == 2
     no_retry_delay.assert_not_awaited()
 
@@ -110,3 +113,51 @@ async def test_lifespan_does_not_retry_real_migration_errors(
     manager.ping.assert_awaited_once()
     no_retry_delay.assert_not_awaited()
     manager.run_migration_up.assert_awaited_once()
+
+
+async def _run_lifespan_capturing_warnings(monkeypatch) -> list[str]:
+    monkeypatch.setattr(api_main, "_run_database_migrations", AsyncMock())
+    warnings: list[str] = []
+    sink_id = api_main.logger.add(
+        lambda m: warnings.append(m.record["message"]), level="WARNING"
+    )
+    try:
+        # lifespan never touches its app argument, so None keeps the test
+        # independent of the real app's middleware/routers.
+        async with api_main.lifespan(None):  # type: ignore[arg-type]
+            pass
+    finally:
+        api_main.logger.remove(sink_id)
+    return warnings
+
+
+@pytest.mark.asyncio
+async def test_lifespan_warns_when_password_unset(monkeypatch):
+    monkeypatch.delenv("OPEN_NOTEBOOK_PASSWORD", raising=False)
+    monkeypatch.delenv("OPEN_NOTEBOOK_PASSWORD_FILE", raising=False)
+
+    warnings = await _run_lifespan_capturing_warnings(monkeypatch)
+
+    assert any("OPEN_NOTEBOOK_PASSWORD not set" in w for w in warnings)
+
+
+@pytest.mark.asyncio
+async def test_lifespan_does_not_warn_when_password_set(monkeypatch):
+    monkeypatch.delenv("OPEN_NOTEBOOK_PASSWORD_FILE", raising=False)
+    monkeypatch.setenv("OPEN_NOTEBOOK_PASSWORD", "s3cret")
+
+    warnings = await _run_lifespan_capturing_warnings(monkeypatch)
+
+    assert not any("OPEN_NOTEBOOK_PASSWORD" in w for w in warnings)
+
+
+@pytest.mark.asyncio
+async def test_lifespan_does_not_warn_when_password_file_set(monkeypatch, tmp_path):
+    password_file = tmp_path / "password"
+    password_file.write_text("s3cret\n")
+    monkeypatch.delenv("OPEN_NOTEBOOK_PASSWORD", raising=False)
+    monkeypatch.setenv("OPEN_NOTEBOOK_PASSWORD_FILE", str(password_file))
+
+    warnings = await _run_lifespan_capturing_warnings(monkeypatch)
+
+    assert not any("OPEN_NOTEBOOK_PASSWORD" in w for w in warnings)

@@ -3,6 +3,7 @@ Async migration system for SurrealDB using the official Python client.
 Based on patterns from sblpy migration system.
 """
 
+from pathlib import Path
 from typing import List
 
 from loguru import logger
@@ -122,6 +123,8 @@ class AsyncMigrationManager:
             AsyncMigration.from_file("open_notebook/database/migrations/24.surrealql"),
             AsyncMigration.from_file("open_notebook/database/migrations/25.surrealql"),
             AsyncMigration.from_file("open_notebook/database/migrations/26.surrealql"),
+            AsyncMigration.from_file("open_notebook/database/migrations/27.surrealql"),
+            AsyncMigration.from_file("open_notebook/database/migrations/28.surrealql"),
         ]
         self.down_migrations = [
             AsyncMigration.from_file(
@@ -202,6 +205,12 @@ class AsyncMigrationManager:
             AsyncMigration.from_file(
                 "open_notebook/database/migrations/26_down.surrealql"
             ),
+            AsyncMigration.from_file(
+                "open_notebook/database/migrations/27_down.surrealql"
+            ),
+            AsyncMigration.from_file(
+                "open_notebook/database/migrations/28_down.surrealql"
+            ),
         ]
         self.runner = AsyncMigrationRunner(
             up_migrations=self.up_migrations,
@@ -225,6 +234,22 @@ class AsyncMigrationManager:
         """Check if migration is needed."""
         current_version = await self.get_current_version()
         return current_version < len(self.up_migrations)
+
+    async def run_fork_schema(self) -> None:
+        """Apply this fork's own schema files (``database/fork/*.surrealql``).
+
+        Unlike the numbered migrations these carry no version: every statement
+        is ``IF NOT EXISTS``, so they run on every startup and change nothing
+        once applied. That keeps the fork's tables out of the upstream
+        numbering, so a migration added upstream can never collide with one of
+        ours or be skipped on an installation that already has our tables.
+        """
+        fork_dir = Path(__file__).parent / "fork"
+        for path in sorted(fork_dir.glob("*.surrealql")):
+            migration = AsyncMigration.from_file(str(path))
+            async with db_connection() as connection:
+                await connection.query(migration.sql)
+            logger.info(f"Applied fork schema {path.name}")
 
     async def run_migration_up(self):
         """Run all pending migrations."""
